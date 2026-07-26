@@ -82,7 +82,7 @@ client.on(Events.MessageCreate, (message) => {
 
 			const embed = new EmbedBuilder()
 				.setTitle('Bot Information')
-				.setDescription(`This is a bot, where you can see ${playerTag}'s information.`)
+				.setDescription(`Torn Helper Bot - configured to use ${playerTag}'s API information.`)
 			message.reply({"embeds": [embed]});
 			};
 			wrapper();
