@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js"
   },
-  "keywords": [Torn city, Torn, Discord, Discord bot, bot, discord],
+  "keywords": ["torn city", "Torn", "Discord", "Discord bot", "bot", "discord", "Torn City", "Torn"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
