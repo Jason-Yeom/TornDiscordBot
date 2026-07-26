@@ -96,6 +96,34 @@ client.on(Events.MessageCreate, (message) => {
 			return;
 		}
 	}
+
+	if (message.content.startsWith("!log")) {
+		try {
+			async function logger() {
+				var arguments = message.content.split(' ');
+				var argument = arguments[1];
+				if (isNaN(argument)) {
+					message.reply("Error! Enter a correct number of logs you wanna view. Message example: !log 10")
+					return;
+				};
+				var rawResponseLog = await fetch('https://api.torn.com/v2/user/log', {
+					"method": "GET",
+					"headers": {
+						"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+						"content-type": "applications/json",
+						"Authorization": `ApiKey ${process.env.TORN_API}`,
+					}
+				});
+				var log = await rawResponseLog.json();
+				var logString = JSON.stringify(log);
+				for (var i=1; i<argument; i++ ) {
+					log // incomplete
+				}
+			}
+		} catch (err) {
+			
+		}
+	}
 });
 
 client.login(process.env.DISCORD_TOKEN);
