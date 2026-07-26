@@ -1,7 +1,8 @@
 # WIP
 
 # TornDiscordBot
-Ultimate TORN city API Discord Bot with a easy usage, Legal in torn city's automation rules. features include verification, banking, retaliation, ping, etc...
+A Simple TORN city API Discord Bot with a easy usage, Legal in torn city's automation rules. 
+Used to call to torn api from discord, for monitoring
 
 # How to use
 - copy a file named `.env`, from `.env.example`
