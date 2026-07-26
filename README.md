@@ -13,4 +13,4 @@ Ultimate TORN city API Discord Bot with a easy usage, Legal in torn city's autom
 - `!ping` displays if bot is alive
 - `!info` displays bot's information
 
-<small>whats torn city? this > [https://torn.com/](https://torn.com/4045988)</small>
+<sub>whats torn city? this : [https://torn.com/](https://torn.com/4045988)</sub>
