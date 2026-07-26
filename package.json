@@ -1,0 +1,17 @@
+{
+  "name": "TornView",
+  "version": "1.0.0",
+  "description": "A Simple TORN city API Discord Bot with a easy usage, Legal in torn city's automation rules. However, WIP.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [Torn city, Torn, Discord, Discord bot, bot, discord],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2"
+  }
+}
