@@ -9,4 +9,6 @@ A Simple TORN city API Discord Bot with a easy usage, Legal in torn city's autom
 - run `npm install`
 - run `node index.js`
 
-  
+# Commands
+- `!ping` displays if bot is alive
+- `!info` displays bot's information
