@@ -116,9 +116,20 @@ client.on(Events.MessageCreate, (message) => {
 				});
 				var log = await rawResponseLog.json();
 				var logString = JSON.stringify(log);
-				for (var i=1; i<argument; i++ ) {
-					log // incomplete
-				}
+				var listLog = [];
+				for (var i=0; i<(argument-1); i++ ) {
+					var title = log.log[i].details.title;
+					var titletext = JSON.stringify(title);
+					var data = log.log[i].data;
+					var datatext = JSON.stringify(data);
+					var buffer = "";
+					var buffer = var buffer + '{"title":"${titletext}","data":"${datatext}"},';
+				};
+				
+				var logdata = JSON.parse(buffer);
+				var sendingmessage = // wip
+				message.reply()
+				
 			}
 		} catch (err) {
 			
