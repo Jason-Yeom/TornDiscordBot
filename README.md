@@ -46,11 +46,11 @@ Used to call to torn api from discord, for monitoring
 - `nvm install 24`
 - verify using `node -v` and `npm -v`
 - cd to the directory where you extracted the zip file.
-- run npm i
-- run node index.js
+- run `npm i`
+- run `node index.js`
 - if the terminal window is closed, the bot will stop working
-- so either do sudo npm -g install pm2
-- and do pm2 start index.js
+- so either do `sudo npm -g install pm2`
+- and do `pm2 start index.js`
 - OR
 - use gnu `screen` to make a persistent session.
 
