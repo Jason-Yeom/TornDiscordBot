@@ -127,14 +127,25 @@ client.on(Events.MessageCreate, (message) => {
 				};
 				buffer = buffer.slice(0, -1);
 				buffer = `${buffer}]`;
-				var logdata = JSON.parse(buffer);
 				// json is made in logdata, configure it to be readable and sendable and send it via embed.
-				var sendingmessage = // WIP
-				message.reply()
-				
+				var logdata = JSON.parse(buffer);
+				for(var i = 0; i < logdata.length; i++) {
+ 					var obj = logdata[i];
+					var descriptionBuffer = "";
+					var invisibleChar = '\u200B';
+					var j = i+1
+					descriptionBuffer = `${descriptionBuffer} ${j}: ${obj.title} - ${obj.data} ${invisibleChar}\n`
+				};
+				var logembed = new EmbedBuilder()
+					.setColor(0xa8e843)
+					.setTitle('Torn City Log Viewer')
+					.setURL('https://www.torn.com/page.php?sid=log')
+					.setDescription(descriptionBuffer)
+				message.reply({ embeds: [exampleEmbed] });
 			}
 		} catch (err) {
-			
+			message.reply(`an error accured; ${err});
+			console.error(`Error accured while !log: ${err}`);
 		}
 	}
 });
