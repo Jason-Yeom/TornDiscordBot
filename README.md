@@ -41,9 +41,9 @@ Used to call to torn api from discord, for monitoring
 - note, if you are using linux, i will assume that you are an experienced user.
 - Open your terminal.
 - Install nodejs and npm. most of the time i just install using package manager, but you can run those commands.
-- curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash
-- \. "$HOME/.nvm/nvm.sh"
-- nvm install 24
+- `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash`
+- `\. "$HOME/.nvm/nvm.sh"`
+- `nvm install 24`
 - verify using `node -v` and `npm -v`
 - cd to the directory where you extracted the zip file.
 - run npm i
