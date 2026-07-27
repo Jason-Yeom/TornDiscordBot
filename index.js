@@ -123,7 +123,7 @@ client.on(Events.MessageCreate, (message) => {
 					var data = log.log[i].data;
 					var datatext = JSON.stringify(data);
 					var buffer = "[";
-					var buffer = var buffer + '{"title":"${titletext}","data":"${datatext}"},';
+					var buffer = buffer + '{"title":"${titletext}","data":"${datatext}"},';
 				};
 				buffer = buffer.slice(0, -1);
 				buffer = `${buffer}]`;
@@ -144,7 +144,7 @@ client.on(Events.MessageCreate, (message) => {
 				message.reply({ embeds: [exampleEmbed] });
 			}
 		} catch (err) {
-			message.reply(`an error accured; ${err});
+			message.reply(`an error accured; ${err}`);
 			console.error(`Error accured while !log: ${err}`);
 		}
 	}
