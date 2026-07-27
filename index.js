@@ -141,7 +141,7 @@ client.on(Events.MessageCreate, (message) => {
 					.setTitle('Torn City Log Viewer')
 					.setURL('https://www.torn.com/page.php?sid=log')
 					.setDescription(descriptionBuffer)
-				message.reply({ embeds: [exampleEmbed] });
+				message.reply({ embeds: [logembed] });
 			};
 			logger();
 		} catch (err) {
