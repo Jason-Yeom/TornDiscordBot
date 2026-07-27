@@ -117,24 +117,36 @@ client.on(Events.MessageCreate, (message) => {
 				var log = await rawResponseLog.json();
 				var logString = JSON.stringify(log);
 				var listLog = [];
-				for (var i=0; i<(argument-1); i++ ) {
-					var title = log.log[i].details.title;
-					var titletext = JSON.stringify(title);
-					var data = log.log[i].data;
-					var datatext = JSON.stringify(data);
-					var buffer = "[";
-					var buffer = buffer + '{"title":"${titletext}","data":"${datatext}"},';
-				};
+				var buffer = "[";
+				try {
+					for (var i=0; i<argument; i++ ) {
+						var title = log.log[i].details.title;
+						var titletext = JSON.stringify(title);
+						var data = log.log[i].data;
+						var datatext = JSON.stringify(data);
+						var buffer = buffer + `{"title":${titletext},"data":${datatext}},`;
+					};
+				} catch (err) {
+					message.reply(`Error accured while getting the JSON. most of the time, this is due to the log query being too long. Try lowering it to 100. \n ${err}`)
+					console.error(`Error accured while getting the JSON. most of the time, this is due to the log query being too long. Try lowering it to 100. following is the error log/ ${err}`);
+					return;
+				}
 				buffer = buffer.slice(0, -1);
 				buffer = `${buffer}]`;
 				// json is made in logdata, configure it to be readable and sendable and send it via embed.
-				var logdata = JSON.parse(buffer);
+				try {
+					var logdata = JSON.parse(buffer);
+				} catch (err) {
+					message.reply(`Error! probably this is due to using negative numbers. following is the error log: ${err}`)
+					console.error(`${err} happened while parsing JSON. JSON's text version was ${buffer}`);
+					return;
+				}
+				var descriptionBuffer = "";
 				for(var i = 0; i < logdata.length; i++) {
  					var obj = logdata[i];
-					var descriptionBuffer = "";
 					var invisibleChar = '\u200B';
 					var j = i+1
-					descriptionBuffer = `${descriptionBuffer} ${j}: ${obj.title} - ${obj.data} ${invisibleChar}\n`
+					descriptionBuffer = `${descriptionBuffer}${j}: ${obj.title} - \n${JSON.stringify(obj.data)} ${invisibleChar}\n\n`
 				};
 				var logembed = new EmbedBuilder()
 					.setColor(0xa8e843)
@@ -147,6 +159,7 @@ client.on(Events.MessageCreate, (message) => {
 		} catch (err) {
 			message.reply(`an error accured; ${err}`);
 			console.error(`Error accured while !log: ${err}`);
+			return;
 		}
 	}
 });
