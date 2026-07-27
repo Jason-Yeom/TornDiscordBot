@@ -57,6 +57,7 @@ Used to call to torn api from discord, for monitoring
 # Commands and syntax
 - `!ping` displays if bot is alive
 - `!info` displays bot's information
-- `!log` displays user's log. syntax: !log <number of logs>. example: !log 10
+- `!log` displays user's log. syntax: `!log <number of logs>`. example: `!log 10`
 
-<sub>whats torn city? this : [https://torn.com/](https://torn.com/4045988)</sub>
+<sub>whats torn city? A long term text based MMORPG game! [https://torn.com/](https://torn.com/4045988)</sub>
+<sub>JasonYeom [4045988]</sub>
