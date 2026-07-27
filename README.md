@@ -1,6 +1,6 @@
 # TornViewer
 A Simple TORN city API Discord Bot with a easy usage, Legal in torn city's automation rules. 
-Used to call to torn api from discord, for monitoring
+Used to call to torn api from discord, for monitoring but idk, universal usage
 
 # How to use
 ### 1. Getting a discord bot
