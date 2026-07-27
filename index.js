@@ -122,12 +122,14 @@ client.on(Events.MessageCreate, (message) => {
 					var titletext = JSON.stringify(title);
 					var data = log.log[i].data;
 					var datatext = JSON.stringify(data);
-					var buffer = "";
+					var buffer = "[";
 					var buffer = var buffer + '{"title":"${titletext}","data":"${datatext}"},';
 				};
-				
+				buffer = buffer.slice(0, -1);
+				buffer = `${buffer}]`;
 				var logdata = JSON.parse(buffer);
-				var sendingmessage = // wip
+				// json is made in logdata, configure it to be readable and sendable and send it via embed.
+				var sendingmessage = // WIP
 				message.reply()
 				
 			}
