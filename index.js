@@ -142,7 +142,8 @@ client.on(Events.MessageCreate, (message) => {
 					.setURL('https://www.torn.com/page.php?sid=log')
 					.setDescription(descriptionBuffer)
 				message.reply({ embeds: [exampleEmbed] });
-			}
+			};
+			logger();
 		} catch (err) {
 			message.reply(`an error accured; ${err}`);
 			console.error(`Error accured while !log: ${err}`);
