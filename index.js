@@ -298,6 +298,26 @@ client.on(Events.MessageCreate, (message) => {
 					console.log(`Merit ID ${ID} is ${meritName}, which has the description: ${meritDescription} (type = merit)`); 
 				} 
 				wrapperWhatisMerit();	
+			} else if (type === "honor") {
+				async function wrapperWhatisHonor() {
+					console.log(`querytype is honor, ID is ${ID}`);
+					var rawResponse = await fetch(`https://api.torn.com/v2/torn/${ID}/honors`, {
+						"headers": {
+							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+							"content-type": "applications/json",
+							"Authorization": `ApiKey ${process.env.TORN_API}`,
+						}
+					});
+					var data = await rawResponse.json();
+					var honorName = data.honors[0].name;
+					var honorDescription = data.honors[0].description;
+					var honorCirculation = data.honors[0].circulation;
+					var honorRarity = data.honors[0].rarity;
+					var honorGroup = data.honors[0].type.title;
+					message.reply(`Honor ID ${ID} is ${honorName}, which has the description: ${honorDescription}. It has a circulation of ${honorCirculation}, is ${honorRarity} rarity, and belongs to the ${honorGroup} group.`);
+					console.log(`Honor ID ${ID} is ${honorName}, which has the description: ${honorDescription}. It has a circulation of ${honorCirculation}, is ${honorRarity} rarity, and belongs to the ${honorGroup} group. (type = honor)`); 
+				} 
+				wrapperWhatisHonor();	
 			}
 		}
 	}
