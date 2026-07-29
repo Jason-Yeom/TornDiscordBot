@@ -260,6 +260,26 @@ client.on(Events.MessageCreate, (message) => {
 					console.log(`Company ID ${ID} is ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. It is made by ${companyOwner} (type = company)`); 
 				} 
 				wrapperWhatisCompany();	
+			} else if (type === "property") {
+				async function wrapperWhatisProperty() {
+					console.log(`querytype is property, ID is ${ID}`);
+					var rawResponse = await fetch(`https://api.torn.com/v2/property/${ID}/property`, {
+						"headers": {
+							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+							"content-type": "applications/json",
+							"Authorization": `ApiKey ${process.env.TORN_API}`,
+						}
+					});
+					var data = await rawResponse.json();
+					var propertyUpkeep = `${data.property.upkeep.property} per day for property fees, and additional ${data.property.upkeep.staff} per day for staff fees`;
+					var propertyOwner = `${data.property.owner.name} [${data.property.owner.id}] `;
+					var propertyHappiness = data.property.happy;
+					var propertyValue = data.property.market_price;
+					var propertyType = `${data.property.property.name} [${data.property.property.id}]`;
+					message.reply(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}.`);
+					console.log(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}. (type = property)`); 
+				} 
+				wrapperWhatisProperty();	
 			}
 		}
 	}
