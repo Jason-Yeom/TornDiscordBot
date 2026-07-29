@@ -247,7 +247,7 @@ client.on(Events.MessageCreate, (message) => {
 					});
 					var data = await rawResponse.json();
 					var companyName = data.profile.name;
-					var companyOwner = `[${data.profile.director.id}] ${data.profile.director.name}`;
+					var companyOwner = `${data.profile.director.name} [${data.profile.director.id}] `;
 					var companyOld = data.profile.days_old;
 					var companyEmployees = `${data.profile.employees.hired} / ${data.profile.employees.capacity}`;
 					var companyDailyIncome = data.profile.income.daily;
