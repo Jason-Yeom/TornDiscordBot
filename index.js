@@ -341,6 +341,25 @@ client.on(Events.MessageCreate, (message) => {
 					console.log(`Stock ID ${ID} is ${stockName}, It is currently priced at ${stockPrice} with a supply of ${stockShares}. currently, ${stockInvestors} investors are investing in this stock. If you invest ${stockBonusRequirement}, you can get Bonus of ${stockBonusDescription}. This bonus ${stockPassive}.`); 
 				} 
 				wrapperWhatisStock();	
+			} if (type === "player") {
+				async function wrapperWhatisPlayer() {
+					console.log(`querytype is player, ID is ${ID}`);
+					var rawResponse = await fetch(`https://api.torn.com/v2/user/${ID}/basic`, {
+						"headers": {
+							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+							"content-type": "applications/json",
+							"Authorization": `ApiKey ${process.env.TORN_API}`,
+						}
+					});
+					var data = await rawResponse.json();
+					var playerName = `${data.profile.name} [${data.profile.id}]`;
+					var playerLevel = data.profile.level;
+					var playerStatus = `${data.profile.status.state} - ${data.profile.status.description}`;
+					var playerGender = data.profile.gender;
+					message.reply(`${playerGender} player ${playerName} is at level ${playerLevel} and has the status: ${playerStatus}.`);
+					console.log(`${playerGender} player ${playerName} is at level ${playerLevel} and has the status: ${playerStatus}. (type = player)`);
+				} 
+				wrapperWhatisPlayer();	
 			}
 		}
 	}

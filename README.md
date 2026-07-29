@@ -58,7 +58,7 @@ Used to call to torn api from discord, for monitoring but idk, universal usage
 - `!ping` displays if bot is alive
 - `!info` displays bot's information
 - `!log` displays user's log. syntax: `!log <number of logs>`. example: `!log 10`
-- `!whatis` translates the IDs of various fields such as item, faction, company, property, merit, honor, stock, ~~and player~~
+- `!whatis` translates the IDs of various fields such as item, faction, company, property, merit, honor, stock, and player
 
 <sub>whats torn city? A long term text based MMORPG game! [https://torn.com/](https://torn.com/4045988)</sub>
 <sub>JasonYeom [4045988]</sub>
