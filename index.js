@@ -101,7 +101,12 @@ client.on(Events.MessageCreate, (message) => {
 		try {
 			async function logger() {
 				var arguments = message.content.split(' ');
-				var argument = arguments[1];
+				var argument = parseInt(arguments[1], 10);
+						const maxLogEntries = 25;
+						if (argument > maxLogEntries) {
+							message.reply(`Too many logs requested. Showing the first ${maxLogEntries} entries instead.`);
+							argument = maxLogEntries;
+						}
 				if (isNaN(argument)) {
 					message.reply("Error! Enter a correct number of logs you wanna view. Message example: !log 10")
 					return;
@@ -142,11 +147,17 @@ client.on(Events.MessageCreate, (message) => {
 					return;
 				}
 				var descriptionBuffer = "";
+				const maxEmbedLength = 4000;
 				for(var i = 0; i < logdata.length; i++) {
  					var obj = logdata[i];
 					var invisibleChar = '\u200B';
 					var j = i+1
-					descriptionBuffer = `${descriptionBuffer}${j}: ${obj.title} - \n${JSON.stringify(obj.data)} ${invisibleChar}\n\n`
+					var entry = `${j}: ${obj.title} - \n${JSON.stringify(obj.data)} ${invisibleChar}\n\n`;
+							if (descriptionBuffer.length + entry.length > maxEmbedLength) {
+								descriptionBuffer += "...output truncated. Use a smaller !log number for more results.";
+								break;
+							}
+							descriptionBuffer = `${descriptionBuffer}${entry}`;
 				};
 				var logembed = new EmbedBuilder()
 					.setColor(0xa8e843)
