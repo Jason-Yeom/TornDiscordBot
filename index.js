@@ -272,12 +272,13 @@ client.on(Events.MessageCreate, (message) => {
 					});
 					var data = await rawResponse.json();
 					var propertyUpkeep = `${data.property.upkeep.property} per day for property fees, and additional ${data.property.upkeep.staff} per day for staff fees`;
+					var propertyTotalUpkeep = data.property.upkeep.property + data.property.upkeep.staff;
 					var propertyOwner = `${data.property.owner.name} [${data.property.owner.id}] `;
 					var propertyHappiness = data.property.happy;
 					var propertyValue = data.property.market_price;
 					var propertyType = `${data.property.property.name} [${data.property.property.id}]`;
-					message.reply(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}.`);
-					console.log(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}. (type = property)`); 
+					message.reply(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep}.`);
+					console.log(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep}. (type = property)`); 
 				} 
 				wrapperWhatisProperty();	
 			}
