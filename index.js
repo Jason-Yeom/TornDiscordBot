@@ -186,7 +186,7 @@ client.on(Events.MessageCreate, (message) => {
 		var type = arguments[1];
 		var ID = parseInt(arguments[2]);
 		if (!type || !ID) {
-			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, faction, company, property, merits, honors, stocks, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
+			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, faction, company, property, merit, honor, stock, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
 			return;
 		} else {
 			if (type === "item") {
@@ -277,10 +277,27 @@ client.on(Events.MessageCreate, (message) => {
 					var propertyHappiness = data.property.happy;
 					var propertyValue = data.property.market_price;
 					var propertyType = `${data.property.property.name} [${data.property.property.id}]`;
-					message.reply(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep}.`);
+					message.reply(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep} per day.`);
 					console.log(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep}. (type = property)`); 
 				} 
 				wrapperWhatisProperty();	
+			} else if (type === "merit") {
+				async function wrapperWhatisMerit() {
+					console.log(`querytype is merit, ID is ${ID}`);
+					var rawResponse = await fetch(`https://api.torn.com/v2/torn/merits`, {
+						"headers": {
+							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+							"content-type": "applications/json",
+							"Authorization": `ApiKey ${process.env.TORN_API}`,
+						}
+					});
+					var data = await rawResponse.json();
+					var meritName = data.merits[ID-1]?.name;
+					var meritDescription = data.merits[ID-1]?.description;
+					message.reply(`Merit ID ${ID} is ${meritName}, which has the description: ${meritDescription}`);
+					console.log(`Merit ID ${ID} is ${meritName}, which has the description: ${meritDescription} (type = merit)`); 
+				} 
+				wrapperWhatisMerit();	
 			}
 		}
 	}
