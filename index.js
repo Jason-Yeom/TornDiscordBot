@@ -162,6 +162,37 @@ client.on(Events.MessageCreate, (message) => {
 			return;
 		}
 	}
+	if (message.content === "!help") {
+		const embed = new EmbedBuilder()
+			.setTitle('Torn Helper Bot - Commands')
+			.setDescription('!ping - checks the bot\'s latency\n!info - shows the bot\'s information\n!log [number] - shows the last [number] of logs from Torn City API\n!help - shows this help message')
+		message.reply({ embeds: [embed] });
+	}
+	if (message.content.startsWith("!whatis")) {
+		var arguments = message.content.split(' ');
+		var type = arguments[1];
+		var ID = arguments[2];
+		if (!type || !ID) {
+			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, factions, company, property, merits, honors, stocks, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
+			return;
+		} else {
+			async function wrapperWhatis() {
+				var rawResponse = await fetch(`https://api.torn.com/torn/items}`, {
+					"headers": {
+						"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+						"content-type": "applications/json",
+						"Authorization": `ApiKey ${process.env.TORN_API}`,
+					}
+				});
+				var data = await rawResponse.json();
+				if (type === "item") {
+					var itemName = data.items[ID+1].name;
+					message.reply(`Item ID ${ID} is ${itemName}`);
+				} 
+			}
+			wrapperWhatis();
+		}
+	}
 });
 
 client.login(process.env.DISCORD_TOKEN);
