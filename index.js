@@ -50,10 +50,15 @@ const logMessageEvent = (message, detail, level = 'log') => {
 	output(`[${timestamp}] ${detail} | ${formatMessageContext(message)} | content="${message.content || ''}"`);
 };
 
+const formatUserTag = (name, id) => `${name || 'Unknown'} [${id || 'Unknown'}]`;
+
 const safeReply = async (message, payload) => {
 	try {
 		logMessageEvent(message, 'Attempting to send reply', 'log');
-		await message.reply(payload);
+		const replyPayload = typeof payload === 'string'
+			? { embeds: [new EmbedBuilder().setColor(0x5865f2).setDescription(payload)] }
+			: payload;
+		await message.reply(replyPayload);
 		logMessageEvent(message, 'Reply sent successfully', 'log');
 	} catch (error) {
 		logMessageEvent(message, `Reply failed: ${error?.message || error}`, 'error');
@@ -109,10 +114,10 @@ client.on(Events.MessageCreate, async (message) => {
 		if (message.content === '!ping') {
 			logMessageEvent(message, 'Handling !ping command', 'log');
 			const timeCalled = Date.now();
-			const sent = await message.reply('Pong!');
+			const sent = await message.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2).setTitle('Pong').setDescription('Measuring latency...')] });
 			const timeSent = Date.now();
 			const delay = timeSent - timeCalled;
-			await sent.edit(`Pong! ${delay} ms`);
+			await sent.edit({ embeds: [new EmbedBuilder().setColor(0x57f287).setTitle('Pong').setDescription(`Latency: ${delay} ms`)] });
 			logMessageEvent(message, `!ping completed with ${delay} ms latency`, 'log');
 			return;
 		}
@@ -126,8 +131,9 @@ client.on(Events.MessageCreate, async (message) => {
 				return;
 			}
 
-			const playerTag = `${data.profile.name} [${data.profile.id}]`;
+			const playerTag = formatUserTag(data.profile.name, data.profile.id);
 			const embed = new EmbedBuilder()
+				.setColor(0x5865f2)
 				.setTitle('Bot Information')
 				.setDescription(`Torn Helper Bot - configured to use ${playerTag}'s API information.`);
 			await safeReply(message, { embeds: [embed] });
@@ -273,7 +279,7 @@ client.on(Events.MessageCreate, async (message) => {
 				}
 
 				const companyName = data.profile.name;
-				const companyOwner = `${data.profile.director?.name || 'Unknown'} [${data.profile.director?.id || 'Unknown'}]`;
+				const companyOwner = formatUserTag(data.profile.director?.name, data.profile.director?.id);
 				const companyOld = data.profile.days_old;
 				const companyEmployees = `${data.profile.employees?.hired || 0} / ${data.profile.employees?.capacity || 0}`;
 				const companyDailyIncome = data.profile.income?.daily || 0;
@@ -299,7 +305,7 @@ client.on(Events.MessageCreate, async (message) => {
 
 				const propertyUpkeep = `${data.property.upkeep?.property || 0} per day for property fees, and additional ${data.property.upkeep?.staff || 0} per day for staff fees`;
 				const propertyTotalUpkeep = (data.property.upkeep?.property || 0) + (data.property.upkeep?.staff || 0);
-				const propertyOwner = `${data.property.owner?.name || 'Unknown'} [${data.property.owner?.id || 'Unknown'}]`;
+				const propertyOwner = formatUserTag(data.property.owner?.name, data.property.owner?.id);
 				const propertyHappiness = data.property.happy || 0;
 				const propertyValue = data.property.market_price || 0;
 				const propertyType = `${data.property.property?.name || 'Unknown'} [${data.property.property?.id || 'Unknown'}]`;
@@ -398,8 +404,39 @@ client.on(Events.MessageCreate, async (message) => {
 				return;
 			}
 
+			if (type === 'thread') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/forum/${ID}/posts?limit=5&stripTags=true`);
+				if (error || !Array.isArray(data?.posts)) {
+					logMessageEvent(message, `!whatis thread failed for ID ${ID}: ${error?.message || 'missing posts data'}`, 'warn');
+					await safeReply(message, `Thread ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const posts = data.posts.slice(0, 5);
+				if (posts.length === 0) {
+					logMessageEvent(message, `!whatis thread returned no posts for ID ${ID}`, 'warn');
+					await safeReply(message, `Thread ID ${ID} does not contain any posts.`);
+					return;
+				}
+
+				const previewLines = posts.map((post, index) => {
+					const author = formatUserTag(post?.author?.username, post?.author?.id);
+					const content = (post?.content || '').replace(/\s+/g, ' ').trim();
+					const shortContent = content.length > 140 ? `${content.slice(0, 137)}...` : content;
+					return `${index + 1}. ${author}: ${shortContent || '[empty message]'}`;
+				});
+
+				const embed = new EmbedBuilder()
+					.setColor(0x5865f2)
+					.setTitle(`Thread ${ID} Latest Posts`)
+					.setDescription(previewLines.join('\n'));
+				await safeReply(message, { embeds: [embed] });
+				logMessageEvent(message, `!whatis thread succeeded for ID ${ID} with ${posts.length} posts`, 'log');
+				return;
+			}
+
 			logMessageEvent(message, `Unsupported !whatis type: ${type}`, 'warn');
-			await safeReply(message, 'Unsupported type. Supported types are: item, faction, company, property, merit, honor, stock, and player.');
+			await safeReply(message, 'Unsupported type. Supported types are: item, faction, company, property, merit, honor, stock, player, and thread.');
 		}
 	} catch (error) {
 		await handleCommandError(message, 'Message handler', error);
