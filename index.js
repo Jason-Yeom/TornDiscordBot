@@ -206,8 +206,16 @@ client.on(Events.MessageCreate, async (message) => {
 		if (message.content === '!help') {
 			logMessageEvent(message, 'Handling !help command', 'log');
 			const embed = new EmbedBuilder()
+				.setColor(0x5865f2)
 				.setTitle('Torn Helper Bot - Commands')
-				.setDescription('!ping - checks the bot\'s latency\n!info - shows the bot\'s information\n!log [number] - shows the last [number] of logs from Torn City API\n!help - shows this help message');
+				.setDescription('Here are the available commands:')
+				.addFields(
+					{ name: '!ping', value: 'Checks the bot latency and replies with a pong embed.', inline: false },
+					{ name: '!info', value: 'Shows bot information using your Torn API profile.', inline: false },
+					{ name: '!log [number]', value: 'Shows the latest log entries from Torn City.', inline: false },
+					{ name: '!whatis [type] [id]', value: 'Looks up Torn items, factions, companies, properties, merits, honors, stocks, players, or forum threads.', inline: false },
+					{ name: '!help', value: 'Shows this help message.', inline: false }
+				);
 			await safeReply(message, { embeds: [embed] });
 			logMessageEvent(message, '!help completed', 'log');
 			return;
