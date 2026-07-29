@@ -186,7 +186,7 @@ client.on(Events.MessageCreate, (message) => {
 		var type = arguments[1];
 		var ID = parseInt(arguments[2]);
 		if (!type || !ID) {
-			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, factions, company, property, merits, honors, stocks, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
+			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, faction, company, property, merits, honors, stocks, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
 			return;
 		} else {
 			if (type === "item") {
