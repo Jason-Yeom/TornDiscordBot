@@ -171,28 +171,33 @@ client.on(Events.MessageCreate, (message) => {
 	if (message.content.startsWith("!whatis")) {
 		var arguments = message.content.split(' ');
 		var type = arguments[1];
-		var ID = arguments[2];
+		var ID = parseInt(arguments[2]);
 		if (!type || !ID) {
 			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, factions, company, property, merits, honors, stocks, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
 			return;
 		} else {
-			async function wrapperWhatis() {
-				var rawResponse = await fetch(`https://api.torn.com/torn/items}`, {
-					"headers": {
-						"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-						"content-type": "applications/json",
-						"Authorization": `ApiKey ${process.env.TORN_API}`,
-					}
-				});
-				var data = await rawResponse.json();
-				var dataText = await JSON.stringify(data);
-
 				if (type === "item") {
-					var itemName = dataText.items[ID+1].name;
-					message.reply(`Item ID ${ID} is ${itemName}`);
-				} 
+					async function wrapperWhatis() {
+						console.log(`querytype is item, ID is ${ID}`);
+						var rawResponse = await fetch(`https://api.torn.com/v2/torn/items`, {
+							"headers": {
+								"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+								"content-type": "applications/json",
+								"Authorization": `ApiKey ${process.env.TORN_API}`,
+							}
+						});
+						var data = await rawResponse.json(); // debugging purposes, can be removed later
+						var itemName = data.items?.[ID-1]?.name;
+						console.log(`itemName is ${itemName}`); // debugging purposes, can be removed later
+							if (!itemName) {
+								message.reply(`Item ID ${ID} could not be found.`);
+								return;
+							}
+						message.reply(`Item ID ${ID} is ${itemName}.`);
+						console.log(`replied with ${itemName} for ${ID} (type = item)`); 
+					} 
+				wrapperWhatis();	
 			}
-			wrapperWhatis();
 		}
 	}
 });
