@@ -33,335 +33,376 @@ client.once(Events.ClientReady, (readyClient) => {
 	console.log(`logged in as ${readyClient.user.tag}`);
 });
 
-client.on(Events.MessageCreate, (message) => {
-	if (message.author.bot) return;
-	
-	if (message.content === "!ping") {
-		try { 
-			async function pingEdit() {
-				console.log("!ping detected!");
-				var timeCalled = await Date.now();
-				console.log(`got current time when !ping was called, ${timeCalled}`);
-				var sent = await message.reply("Pong!");
-				console.log(`sent the reply, "Pong!"`)
-				var timeSent = await Date.now();
-				console.log(`got the current time when Ping was sent, ${timeSent}`)
-				var delay = await timeSent - timeCalled;
-				console.log(`calculated the delay, ${delay}`);
-				await sent.edit(`Pong! ${delay} ms`)
-				console.log(`edited the message to; "Pong! ${delay} ms"`)
-			}
-			pingEdit();
-		} catch (err) {
-			var time = Date.now();
-			console.error(`Time editing for !ping ran at epoch ${time} failed, defaulted to fallback by just not editing.`)
-			return;
+const formatMessageContext = (message) => {
+	const guildName = message.guild?.name || 'DM';
+	const channelName = message.channel?.name || message.channel?.id || 'unknown';
+	return `guild=${guildName} channel=${channelName} user=${message.author?.tag || message.author?.id || 'unknown'} (${message.author?.id || 'unknown'})`;
+};
+
+const logMessageEvent = (message, detail, level = 'log') => {
+	const timestamp = new Date().toISOString();
+	const output = level === 'warn'
+		? console.warn
+		: level === 'error'
+			? console.error
+			: console.log;
+
+	output(`[${timestamp}] ${detail} | ${formatMessageContext(message)} | content="${message.content || ''}"`);
+};
+
+const safeReply = async (message, payload) => {
+	try {
+		logMessageEvent(message, 'Attempting to send reply', 'log');
+		await message.reply(payload);
+		logMessageEvent(message, 'Reply sent successfully', 'log');
+	} catch (error) {
+		logMessageEvent(message, `Reply failed: ${error?.message || error}`, 'error');
+	}
+};
+
+const safeFetchJson = async (message, url, options = {}) => {
+	try {
+		logMessageEvent(message, `Fetching Torn API: ${url}`, 'log');
+
+		if (!process.env.TORN_API) {
+			throw new Error('Missing TORN_API environment variable.');
 		}
+
+		const response = await fetch(url, {
+			method: 'GET',
+			...options,
+			headers: {
+				'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
+				'content-type': 'application/json',
+				Authorization: `ApiKey ${process.env.TORN_API}`,
+				...(options.headers || {})
+			}
+		});
+
+		if (!response.ok) {
+			throw new Error(`Torn API responded with HTTP ${response.status}`);
+		}
+
+		const data = await response.json();
+		logMessageEvent(message, `Fetched Torn API successfully from ${url}`, 'log');
+		return { data, error: null };
+	} catch (error) {
+		logMessageEvent(message, `Torn API request failed for ${url}: ${error?.message || error}`, 'error');
+		return { data: null, error };
+	}
+};
+
+const handleCommandError = async (message, context, error) => {
+	logMessageEvent(message, `${context} failed: ${error?.message || error}`, 'error');
+	await safeReply(message, `That command could not be completed right now. ${error?.message || error}`);
+};
+
+client.on(Events.MessageCreate, async (message) => {
+	if (message.author.bot) {
+		logMessageEvent(message, 'Ignored bot message', 'log');
+		return;
 	}
 
-	if (message.content === "!info") {
-		try {
-			async function wrapper(){
-			console.log(`!info detected`);
-			async function UserBasic() {
-				var rawResponseUserBasic = await fetch('https://api.torn.com/v2/user/basic', {
-					method: "GET",
-					headers: {
-						"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-						"content-type": "applications/json",
-						"Authorization": `ApiKey ${process.env.TORN_API}`
-					}
-				});
-				console.log(`fetching from torn, path is https://api.torn.com/v2/user/basic`);
-				var UserBasicJson = await rawResponseUserBasic.json();
-				var textJson = await JSON.stringify(UserBasicJson);
-				console.log(`converting it to json, result is ${textJson}`)
-				var playerTag = `${UserBasicJson.profile.name} [${UserBasicJson.profile.id}]`;
-				console.log(`player tag is ${playerTag}`);
-				return playerTag;
-			};
-			const playerTag = await UserBasic();
+	logMessageEvent(message, 'Received message', 'log');
 
+	try {
+		if (message.content === '!ping') {
+			logMessageEvent(message, 'Handling !ping command', 'log');
+			const timeCalled = Date.now();
+			const sent = await message.reply('Pong!');
+			const timeSent = Date.now();
+			const delay = timeSent - timeCalled;
+			await sent.edit(`Pong! ${delay} ms`);
+			logMessageEvent(message, `!ping completed with ${delay} ms latency`, 'log');
+			return;
+		}
+
+		if (message.content === '!info') {
+			logMessageEvent(message, 'Handling !info command', 'log');
+			const { data, error } = await safeFetchJson(message, 'https://api.torn.com/v2/user/basic');
+			if (error || !data?.profile) {
+				logMessageEvent(message, `!info failed: ${error?.message || 'missing profile data'}`, 'warn');
+				await safeReply(message, 'Unable to fetch your Torn info right now.');
+				return;
+			}
+
+			const playerTag = `${data.profile.name} [${data.profile.id}]`;
 			const embed = new EmbedBuilder()
 				.setTitle('Bot Information')
-				.setDescription(`Torn Helper Bot - configured to use ${playerTag}'s API information.`)
-			message.reply({"embeds": [embed]});
-			};
-			wrapper();
-
-		} catch (err) {
-			console.error(`Error!: ${err}`);
-			const embed = new EmbedBuilder()
-				.setTitle("An Error Occured")
-				.setDescription(`Error: ${err}`)
-			message.reply({"embeds": [embed]});
+				.setDescription(`Torn Helper Bot - configured to use ${playerTag}'s API information.`);
+			await safeReply(message, { embeds: [embed] });
+			logMessageEvent(message, `!info succeeded for ${playerTag}`, 'log');
 			return;
 		}
-	}
 
-	if (message.content.startsWith("!log")) {
-		try {
-			async function logger() {
-				var arguments = message.content.split(' ');
-				var argument = parseInt(arguments[1], 10);
-						const maxLogEntries = 25;
-						if (argument > maxLogEntries) {
-							message.reply(`Too many logs requested. Showing the first ${maxLogEntries} entries instead.`);
-							argument = maxLogEntries;
-						}
-				if (isNaN(argument)) {
-					message.reply("Error! Enter a correct number of logs you wanna view. Message example: !log 10")
-					return;
-				};
-				var rawResponseLog = await fetch('https://api.torn.com/v2/user/log', {
-					"method": "GET",
-					"headers": {
-						"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-						"content-type": "applications/json",
-						"Authorization": `ApiKey ${process.env.TORN_API}`,
-					}
-				});
-				var log = await rawResponseLog.json();
-				var logString = JSON.stringify(log);
-				var listLog = [];
-				var buffer = "[";
-				try {
-					for (var i=0; i<argument; i++ ) {
-						var title = log.log[i].details.title;
-						var titletext = JSON.stringify(title);
-						var data = log.log[i].data;
-						var datatext = JSON.stringify(data);
-						var buffer = buffer + `{"title":${titletext},"data":${datatext}},`;
-					};
-				} catch (err) {
-					message.reply(`Error accured while getting the JSON. most of the time, this is due to the log query being too long. Try lowering it to 100. \n ${err}`)
-					console.error(`Error accured while getting the JSON. most of the time, this is due to the log query being too long. Try lowering it to 100. following is the error log/ ${err}`);
-					return;
-				}
-				buffer = buffer.slice(0, -1);
-				buffer = `${buffer}]`;
-				// json is made in logdata, configure it to be readable and sendable and send it via embed.
-				try {
-					var logdata = JSON.parse(buffer);
-				} catch (err) {
-					message.reply(`Error! probably this is due to using negative numbers. following is the error log: ${err}`)
-					console.error(`${err} happened while parsing JSON. JSON's text version was ${buffer}`);
-					return;
-				}
-				var descriptionBuffer = "";
-				const maxEmbedLength = 4000;
-				for(var i = 0; i < logdata.length; i++) {
- 					var obj = logdata[i];
-					var invisibleChar = '\u200B';
-					var j = i+1
-					var entry = `${j}: ${obj.title} - \n${JSON.stringify(obj.data)} ${invisibleChar}\n\n`;
-							if (descriptionBuffer.length + entry.length > maxEmbedLength) {
-								descriptionBuffer += "...output truncated. Use a smaller !log number for more results.";
-								break;
-							}
-							descriptionBuffer = `${descriptionBuffer}${entry}`;
-				};
-				var logembed = new EmbedBuilder()
-					.setColor(0xa8e843)
-					.setTitle('Torn City Log Viewer')
-					.setURL('https://www.torn.com/page.php?sid=log')
-					.setDescription(descriptionBuffer)
-				message.reply({ embeds: [logembed] });
-			};
-			logger();
-		} catch (err) {
-			message.reply(`an error accured; ${err}`);
-			console.error(`Error accured while !log: ${err}`);
-			return;
-		}
-	}
-	if (message.content === "!help") {
-		const embed = new EmbedBuilder()
-			.setTitle('Torn Helper Bot - Commands')
-			.setDescription('!ping - checks the bot\'s latency\n!info - shows the bot\'s information\n!log [number] - shows the last [number] of logs from Torn City API\n!help - shows this help message')
-		message.reply({ embeds: [embed] });
-	}
-	if (message.content.startsWith("!whatis")) {
-		var arguments = message.content.split(' ');
-		var type = arguments[1];
-		var ID = parseInt(arguments[2]);
-		if (!type || !ID) {
-			message.reply("Error! what type of ID it is, and type the ID you wanna convert. Message example: !whatis item 206 (should return Xanax).\nacceptible types are: item, faction, company, property, merit, honor, stock, and player. If you want to convert a player ID, use !whatis player [ID] instead of !whatis player [name].");
-			return;
-		} else {
-			if (type === "item") {
-				async function wrapperWhatisItem() {
-					console.log(`querytype is item, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/torn/items`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json(); // debugging purposes, can be removed later
-					var itemName = data.items?.[ID-1]?.name;
-					console.log(`itemName is ${itemName}`); // debugging purposes, can be removed later
-						if (!itemName) {
-							message.reply(`Item ID ${ID} could not be found.`);
-							return;
-						}
-					message.reply(`Item ID ${ID} is ${itemName}.`);
-					console.log(`replied with ${itemName} for ${ID} (type = item)`); 
-				} 
-				wrapperWhatisItem();	
-			} else if (type === "faction") {
-				async function wrapperWhatisFaction() {
-					console.log(`querytype is factions, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/faction/${ID}/basic`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var factionName = data.basic.name;
-					var factionTag = data.basic.tag;
-					var factionOld = data.basic.days_old;
-					var factionMembers = `${data.basic.members} / ${data.basic.capacity}`; 
-					var factionRespect = data.basic.respect;
-					console.log(`faction name is ${factionName}`); 
-						if (!factionName) {
-							message.reply(`Faction ID ${ID} could not be found.`);
-							return;
-						}
-					message.reply(`Faction ID ${ID} is [${factionTag}] ${factionName}, which is ${factionOld} days old, has ${factionMembers} members, and has ${factionRespect} respect.`);
-					console.log(`replied with [${factionTag}] ${factionName}, which is ${factionOld} days old, has ${factionMembers} members, and has ${factionRespect} respect. type = factions)`); 
-				} 
-				wrapperWhatisFaction();	
-			} else if (type === "company") {
-				async function wrapperWhatisCompany() {
-					console.log(`querytype is company, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/company/${ID}/profile`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var companyName = data.profile.name;
-					var companyOwner = `${data.profile.director.name} [${data.profile.director.id}] `;
-					var companyOld = data.profile.days_old;
-					var companyEmployees = `${data.profile.employees.hired} / ${data.profile.employees.capacity}`;
-					var companyDailyIncome = data.profile.income.daily;
-					console.log(`company name is ${companyName}`); 
-						if (!companyName) {
-							message.reply(`Company ID ${ID} could not be found.`);
-							return;
-						}
-					message.reply(`Company ID ${ID} is ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. It is made by ${companyOwner}`);
-					console.log(`Company ID ${ID} is ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. It is made by ${companyOwner} (type = company)`); 
-				} 
-				wrapperWhatisCompany();	
-			} else if (type === "property") {
-				async function wrapperWhatisProperty() {
-					console.log(`querytype is property, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/property/${ID}/property`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var propertyUpkeep = `${data.property.upkeep.property} per day for property fees, and additional ${data.property.upkeep.staff} per day for staff fees`;
-					var propertyTotalUpkeep = data.property.upkeep.property + data.property.upkeep.staff;
-					var propertyOwner = `${data.property.owner.name} [${data.property.owner.id}] `;
-					var propertyHappiness = data.property.happy;
-					var propertyValue = data.property.market_price;
-					var propertyType = `${data.property.property.name} [${data.property.property.id}]`;
-					message.reply(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep} per day.`);
-					console.log(`Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep}. (type = property)`); 
-				} 
-				wrapperWhatisProperty();	
-			} else if (type === "merit") {
-				async function wrapperWhatisMerit() {
-					console.log(`querytype is merit, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/torn/merits`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var meritName = data.merits[ID-1]?.name;
-					var meritDescription = data.merits[ID-1]?.description;
-					message.reply(`Merit ID ${ID} is ${meritName}, which has the description: ${meritDescription}`);
-					console.log(`Merit ID ${ID} is ${meritName}, which has the description: ${meritDescription} (type = merit)`); 
-				} 
-				wrapperWhatisMerit();	
-			} else if (type === "honor") {
-				async function wrapperWhatisHonor() {
-					console.log(`querytype is honor, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/torn/${ID}/honors`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var honorName = data.honors[0].name;
-					var honorDescription = data.honors[0].description;
-					var honorCirculation = data.honors[0].circulation;
-					var honorRarity = data.honors[0].rarity;
-					var honorGroup = data.honors[0].type.title;
-					message.reply(`Honor ID ${ID} is ${honorName}, which has the description: ${honorDescription}. It has a circulation of ${honorCirculation}, is ${honorRarity} rarity, and belongs to the ${honorGroup} group.`);
-					console.log(`Honor ID ${ID} is ${honorName}, which has the description: ${honorDescription}. It has a circulation of ${honorCirculation}, is ${honorRarity} rarity, and belongs to the ${honorGroup} group. (type = honor)`); 
-				} 
-				wrapperWhatisHonor();	
-			} else if (type === "stock") {
-				async function wrapperWhatisStock() {
-					console.log(`querytype is stock, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/torn/${ID}/stocks`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var stockName = data.stocks.name;
-					var stockTag = data.stocks.acronym;
-					var stockPrice = data.stocks.market.price;
-					var stockShares = data.stocks.market.shares;
-					var stockInvestors = data.stocks.market.investors;
-					var stockPassive = data.stocks.bonus.passive ? "gives the investors passive bonus." : "does not give the investors passive bonus.";
-					var stockBonusRequirement = data.stocks.bonus.requirement;
-					var stockBonusDescription = data.stocks.bonus.description;
-					message.reply(`Stock ID ${ID} is ${stockName}, It is currently priced at ${stockPrice} with a supply of ${stockShares}. currently, ${stockInvestors} investors are investing in this stock. If you invest ${stockBonusRequirement}, you can get Bonus of ${stockBonusDescription}. This bonus ${stockPassive}.`);
-					console.log(`Stock ID ${ID} is ${stockName}, It is currently priced at ${stockPrice} with a supply of ${stockShares}. currently, ${stockInvestors} investors are investing in this stock. If you invest ${stockBonusRequirement}, you can get Bonus of ${stockBonusDescription}. This bonus ${stockPassive}.`); 
-				} 
-				wrapperWhatisStock();	
-			} if (type === "player") {
-				async function wrapperWhatisPlayer() {
-					console.log(`querytype is player, ID is ${ID}`);
-					var rawResponse = await fetch(`https://api.torn.com/v2/user/${ID}/basic`, {
-						"headers": {
-							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-							"content-type": "applications/json",
-							"Authorization": `ApiKey ${process.env.TORN_API}`,
-						}
-					});
-					var data = await rawResponse.json();
-					var playerName = `${data.profile.name} [${data.profile.id}]`;
-					var playerLevel = data.profile.level;
-					var playerStatus = `${data.profile.status.state} - ${data.profile.status.description}`;
-					var playerGender = data.profile.gender;
-					message.reply(`${playerGender} player ${playerName} is at level ${playerLevel} and has the status: ${playerStatus}.`);
-					console.log(`${playerGender} player ${playerName} is at level ${playerLevel} and has the status: ${playerStatus}. (type = player)`);
-				} 
-				wrapperWhatisPlayer();	
+		if (message.content.startsWith('!log')) {
+			const args = message.content.trim().split(/\s+/);
+			let argument = parseInt(args[1], 10);
+			const maxLogEntries = 25;
+			logMessageEvent(message, `Handling !log with arguments: ${args.slice(1).join(', ') || 'none'}`, 'log');
+
+			if (!Number.isInteger(argument) || argument < 1) {
+				logMessageEvent(message, 'Invalid !log usage: missing or invalid number', 'warn');
+				await safeReply(message, 'Error! Enter a correct number of logs you want to view. Example: !log 10');
+				return;
 			}
+
+			if (argument > maxLogEntries) {
+				logMessageEvent(message, `!log request exceeded max; truncating to ${maxLogEntries}`, 'warn');
+				await safeReply(message, `Too many logs requested. Showing the first ${maxLogEntries} entries instead.`);
+				argument = maxLogEntries;
+			}
+
+			const { data, error } = await safeFetchJson(message, 'https://api.torn.com/v2/user/log');
+			if (error || !Array.isArray(data?.log)) {
+				logMessageEvent(message, `!log failed: ${error?.message || 'missing log array'}`, 'warn');
+				await safeReply(message, 'Unable to fetch logs right now. Try a smaller number of entries.');
+				return;
+			}
+
+			const logEntries = data.log.slice(0, argument);
+			if (logEntries.length === 0) {
+				logMessageEvent(message, '!log returned no entries', 'warn');
+				await safeReply(message, 'No log entries were returned for that request.');
+				return;
+			}
+
+			const descriptionBuffer = [];
+			const maxEmbedLength = 4000;
+			let bufferLength = 0;
+
+			for (let i = 0; i < logEntries.length; i++) {
+				const entry = logEntries[i];
+				const title = entry?.details?.title || 'Untitled';
+				const dataPayload = entry?.data ? JSON.stringify(entry.data) : '{}';
+				const text = `${i + 1}: ${title} -\n${dataPayload}\n\n`;
+
+				if (bufferLength + text.length > maxEmbedLength) {
+					descriptionBuffer.push('...output truncated. Use a smaller !log number for more results.');
+					break;
+				}
+
+				descriptionBuffer.push(text);
+				bufferLength += text.length;
+			}
+
+			const logembed = new EmbedBuilder()
+				.setColor(0xa8e843)
+				.setTitle('Torn City Log Viewer')
+				.setURL('https://www.torn.com/page.php?sid=log')
+				.setDescription(descriptionBuffer.join(''));
+
+			await safeReply(message, { embeds: [logembed] });
+			logMessageEvent(message, `!log succeeded with ${logEntries.length} entries`, 'log');
+			return;
 		}
+
+		if (message.content === '!help') {
+			logMessageEvent(message, 'Handling !help command', 'log');
+			const embed = new EmbedBuilder()
+				.setTitle('Torn Helper Bot - Commands')
+				.setDescription('!ping - checks the bot\'s latency\n!info - shows the bot\'s information\n!log [number] - shows the last [number] of logs from Torn City API\n!help - shows this help message');
+			await safeReply(message, { embeds: [embed] });
+			logMessageEvent(message, '!help completed', 'log');
+			return;
+		}
+
+		if (message.content.startsWith('!whatis')) {
+			const args = message.content.trim().split(/\s+/);
+			const type = args[1];
+			const ID = parseInt(args[2], 10);
+			logMessageEvent(message, `Handling !whatis with type=${type || 'none'} id=${ID || 'none'}`, 'log');
+
+			if (!type || !Number.isInteger(ID) || ID < 1) {
+				logMessageEvent(message, 'Invalid !whatis usage: missing type or ID', 'warn');
+				await safeReply(message, 'Error! Provide both a type and a valid ID. Example: !whatis item 206');
+				return;
+			}
+
+			if (type === 'item') {
+				const { data, error } = await safeFetchJson(message, 'https://api.torn.com/v2/torn/items');
+				if (error || !Array.isArray(data?.items)) {
+					logMessageEvent(message, `!whatis item failed for ID ${ID}: ${error?.message || 'missing items array'}`, 'warn');
+					await safeReply(message, `Item ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const itemName = data.items[ID - 1]?.name;
+				if (!itemName) {
+					logMessageEvent(message, `!whatis item could not find ID ${ID}`, 'warn');
+					await safeReply(message, `Item ID ${ID} could not be found.`);
+					return;
+				}
+
+				await safeReply(message, `Item ID ${ID} is ${itemName}.`);
+				logMessageEvent(message, `!whatis item succeeded for ID ${ID}: ${itemName}`, 'log');
+				return;
+			}
+
+			if (type === 'faction') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/faction/${ID}/basic`);
+				if (error || !data?.basic) {
+					logMessageEvent(message, `!whatis faction failed for ID ${ID}: ${error?.message || 'missing basic data'}`, 'warn');
+					await safeReply(message, `Faction ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const factionName = data.basic.name;
+				const factionTag = data.basic.tag;
+				const factionOld = data.basic.days_old;
+				const factionMembers = `${data.basic.members} / ${data.basic.capacity}`;
+				const factionRespect = data.basic.respect;
+
+				if (!factionName) {
+					logMessageEvent(message, `!whatis faction could not find ID ${ID}`, 'warn');
+					await safeReply(message, `Faction ID ${ID} could not be found.`);
+					return;
+				}
+
+				await safeReply(message, `Faction ID ${ID} is [${factionTag}] ${factionName}, which is ${factionOld} days old, has ${factionMembers} members, and has ${factionRespect} respect.`);
+				logMessageEvent(message, `!whatis faction succeeded for ID ${ID}: ${factionName}`, 'log');
+				return;
+			}
+
+			if (type === 'company') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/company/${ID}/profile`);
+				if (error || !data?.profile) {
+					logMessageEvent(message, `!whatis company failed for ID ${ID}: ${error?.message || 'missing profile data'}`, 'warn');
+					await safeReply(message, `Company ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const companyName = data.profile.name;
+				const companyOwner = `${data.profile.director?.name || 'Unknown'} [${data.profile.director?.id || 'Unknown'}]`;
+				const companyOld = data.profile.days_old;
+				const companyEmployees = `${data.profile.employees?.hired || 0} / ${data.profile.employees?.capacity || 0}`;
+				const companyDailyIncome = data.profile.income?.daily || 0;
+
+				if (!companyName) {
+					logMessageEvent(message, `!whatis company could not find ID ${ID}`, 'warn');
+					await safeReply(message, `Company ID ${ID} could not be found.`);
+					return;
+				}
+
+				await safeReply(message, `Company ID ${ID} is ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. It is made by ${companyOwner}`);
+				logMessageEvent(message, `!whatis company succeeded for ID ${ID}: ${companyName}`, 'log');
+				return;
+			}
+
+			if (type === 'property') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/property/${ID}/property`);
+				if (error || !data?.property) {
+					logMessageEvent(message, `!whatis property failed for ID ${ID}: ${error?.message || 'missing property data'}`, 'warn');
+					await safeReply(message, `Property ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const propertyUpkeep = `${data.property.upkeep?.property || 0} per day for property fees, and additional ${data.property.upkeep?.staff || 0} per day for staff fees`;
+				const propertyTotalUpkeep = (data.property.upkeep?.property || 0) + (data.property.upkeep?.staff || 0);
+				const propertyOwner = `${data.property.owner?.name || 'Unknown'} [${data.property.owner?.id || 'Unknown'}]`;
+				const propertyHappiness = data.property.happy || 0;
+				const propertyValue = data.property.market_price || 0;
+				const propertyType = `${data.property.property?.name || 'Unknown'} [${data.property.property?.id || 'Unknown'}]`;
+
+				await safeReply(message, `Property ID ${ID} is ${propertyType}, which has ${propertyHappiness} happiness, and has a value of ${propertyValue}. It is owned by ${propertyOwner}. Upkeep is ${propertyUpkeep}, which totals to ${propertyTotalUpkeep} per day.`);
+				logMessageEvent(message, `!whatis property succeeded for ID ${ID}: ${propertyType}`, 'log');
+				return;
+			}
+
+			if (type === 'merit') {
+				const { data, error } = await safeFetchJson(message, 'https://api.torn.com/v2/torn/merits');
+				if (error || !Array.isArray(data?.merits)) {
+					logMessageEvent(message, `!whatis merit failed for ID ${ID}: ${error?.message || 'missing merits array'}`, 'warn');
+					await safeReply(message, `Merit ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const meritName = data.merits[ID - 1]?.name;
+				const meritDescription = data.merits[ID - 1]?.description;
+
+				if (!meritName) {
+					logMessageEvent(message, `!whatis merit could not find ID ${ID}`, 'warn');
+					await safeReply(message, `Merit ID ${ID} could not be found.`);
+					return;
+				}
+
+				await safeReply(message, `Merit ID ${ID} is ${meritName}, which has the description: ${meritDescription}`);
+				logMessageEvent(message, `!whatis merit succeeded for ID ${ID}: ${meritName}`, 'log');
+				return;
+			}
+
+			if (type === 'honor') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/torn/${ID}/honors`);
+				if (error || !Array.isArray(data?.honors) || data.honors.length === 0) {
+					logMessageEvent(message, `!whatis honor failed for ID ${ID}: ${error?.message || 'missing honor data'}`, 'warn');
+					await safeReply(message, `Honor ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const honor = data.honors[0];
+				const honorName = honor?.name;
+				const honorDescription = honor?.description;
+				const honorCirculation = honor?.circulation;
+				const honorRarity = honor?.rarity;
+				const honorGroup = honor?.type?.title || 'unknown';
+
+				if (!honorName) {
+					logMessageEvent(message, `!whatis honor could not find ID ${ID}`, 'warn');
+					await safeReply(message, `Honor ID ${ID} could not be found.`);
+					return;
+				}
+
+				await safeReply(message, `Honor ID ${ID} is ${honorName}, which has the description: ${honorDescription}. It has a circulation of ${honorCirculation}, is ${honorRarity} rarity, and belongs to the ${honorGroup} group.`);
+				logMessageEvent(message, `!whatis honor succeeded for ID ${ID}: ${honorName}`, 'log');
+				return;
+			}
+
+			if (type === 'stock') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/torn/${ID}/stocks`);
+				if (error || !data?.stocks) {
+					logMessageEvent(message, `!whatis stock failed for ID ${ID}: ${error?.message || 'missing stock data'}`, 'warn');
+					await safeReply(message, `Stock ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const stock = data.stocks;
+				const stockName = stock?.name || 'Unknown';
+				const stockTag = stock?.acronym || 'Unknown';
+				const stockPrice = stock?.market?.price || 0;
+				const stockShares = stock?.market?.shares || 0;
+				const stockInvestors = stock?.market?.investors || 0;
+				const stockPassive = stock?.bonus?.passive ? 'gives the investors passive bonus.' : 'does not give the investors passive bonus.';
+				const stockBonusRequirement = stock?.bonus?.requirement || 0;
+				const stockBonusDescription = stock?.bonus?.description || 'No bonus description available.';
+
+				await safeReply(message, `Stock ID ${ID} is ${stockName} (${stockTag}), priced at ${stockPrice} with ${stockShares} shares. Currently, ${stockInvestors} investors are involved. If you invest ${stockBonusRequirement}, you can get a bonus of ${stockBonusDescription}. This bonus ${stockPassive}.`);
+				logMessageEvent(message, `!whatis stock succeeded for ID ${ID}: ${stockName}`, 'log');
+				return;
+			}
+
+			if (type === 'player') {
+				const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/user/${ID}/basic`);
+				if (error || !data?.profile) {
+					logMessageEvent(message, `!whatis player failed for ID ${ID}: ${error?.message || 'missing profile data'}`, 'warn');
+					await safeReply(message, `Player ID ${ID} could not be fetched right now.`);
+					return;
+				}
+
+				const playerName = `${data.profile.name} [${data.profile.id}]`;
+				const playerLevel = data.profile.level || 'unknown';
+				const playerStatus = `${data.profile.status?.state || 'Unknown'} - ${data.profile.status?.description || 'No status available'}`;
+				const playerGender = data.profile.gender || 'A';
+
+				await safeReply(message, `${playerGender} player ${playerName} is at level ${playerLevel} and has the status: ${playerStatus}.`);
+				logMessageEvent(message, `!whatis player succeeded for ID ${ID}: ${playerName}`, 'log');
+				return;
+			}
+
+			logMessageEvent(message, `Unsupported !whatis type: ${type}`, 'warn');
+			await safeReply(message, 'Unsupported type. Supported types are: item, faction, company, property, merit, honor, stock, and player.');
+		}
+	} catch (error) {
+		await handleCommandError(message, 'Message handler', error);
 	}
 });
 
