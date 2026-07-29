@@ -256,8 +256,8 @@ client.on(Events.MessageCreate, (message) => {
 							message.reply(`Company ID ${ID} could not be found.`);
 							return;
 						}
-					message.reply(`Company ID ${ID} is [${companyTag}] ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income.`);
-					console.log(`replied with [${companyTag}] ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. type = company)`); 
+					message.reply(`Company ID ${ID} is ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. It is made by ${companyOwner}`);
+					console.log(`Company ID ${ID} is ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. It is made by ${companyOwner} (type = company)`); 
 				} 
 				wrapperWhatisCompany();	
 			}
