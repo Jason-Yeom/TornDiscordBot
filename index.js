@@ -185,8 +185,10 @@ client.on(Events.MessageCreate, (message) => {
 					}
 				});
 				var data = await rawResponse.json();
+				var dataText = await JSON.stringify(data);
+
 				if (type === "item") {
-					var itemName = data.items[ID+1].name;
+					var itemName = dataText.items[ID+1].name;
 					message.reply(`Item ID ${ID} is ${itemName}`);
 				} 
 			}
