@@ -318,6 +318,29 @@ client.on(Events.MessageCreate, (message) => {
 					console.log(`Honor ID ${ID} is ${honorName}, which has the description: ${honorDescription}. It has a circulation of ${honorCirculation}, is ${honorRarity} rarity, and belongs to the ${honorGroup} group. (type = honor)`); 
 				} 
 				wrapperWhatisHonor();	
+			} else if (type === "stock") {
+				async function wrapperWhatisStock() {
+					console.log(`querytype is stock, ID is ${ID}`);
+					var rawResponse = await fetch(`https://api.torn.com/v2/torn/${ID}/stocks`, {
+						"headers": {
+							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+							"content-type": "applications/json",
+							"Authorization": `ApiKey ${process.env.TORN_API}`,
+						}
+					});
+					var data = await rawResponse.json();
+					var stockName = data.stocks.name;
+					var stockTag = data.stocks.acronym;
+					var stockPrice = data.stocks.market.price;
+					var stockShares = data.stocks.market.shares;
+					var stockInvestors = data.stocks.market.investors;
+					var stockPassive = data.stocks.bonus.passive ? "gives the investors passive bonus." : "does not give the investors passive bonus.";
+					var stockBonusRequirement = data.stocks.bonus.requirement;
+					var stockBonusDescription = data.stocks.bonus.description;
+					message.reply(`Stock ID ${ID} is ${stockName}, It is currently priced at ${stockPrice} with a supply of ${stockShares}. currently, ${stockInvestors} investors are investing in this stock. If you invest ${stockBonusRequirement}, you can get Bonus of ${stockBonusDescription}. This bonus ${stockPassive}.`);
+					console.log(`Stock ID ${ID} is ${stockName}, It is currently priced at ${stockPrice} with a supply of ${stockShares}. currently, ${stockInvestors} investors are investing in this stock. If you invest ${stockBonusRequirement}, you can get Bonus of ${stockBonusDescription}. This bonus ${stockPassive}.`); 
+				} 
+				wrapperWhatisStock();	
 			}
 		}
 	}
