@@ -224,7 +224,7 @@ client.on(Events.MessageCreate, (message) => {
 					var factionName = data.basic.name;
 					var factionTag = data.basic.tag;
 					var factionOld = data.basic.days_old;
-					var factionMembers = data.basic.members;
+					var factionMembers = `${data.basic.members} / ${data.basic.capacity}`; 
 					var factionRespect = data.basic.respect;
 					console.log(`faction name is ${factionName}`); 
 						if (!factionName) {
@@ -235,6 +235,31 @@ client.on(Events.MessageCreate, (message) => {
 					console.log(`replied with [${factionTag}] ${factionName}, which is ${factionOld} days old, has ${factionMembers} members, and has ${factionRespect} respect. type = factions)`); 
 				} 
 				wrapperWhatisFaction();	
+			} else if (type === "company") {
+				async function wrapperWhatisCompany() {
+					console.log(`querytype is company, ID is ${ID}`);
+					var rawResponse = await fetch(`https://api.torn.com/v2/company/${ID}/profile`, {
+						"headers": {
+							"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
+							"content-type": "applications/json",
+							"Authorization": `ApiKey ${process.env.TORN_API}`,
+						}
+					});
+					var data = await rawResponse.json();
+					var companyName = data.profile.name;
+					var companyOwner = `[${data.profile.director.id}] ${data.profile.director.name}`;
+					var companyOld = data.profile.days_old;
+					var companyEmployees = `${data.profile.employees.hired} / ${data.profile.employees.capacity}`;
+					var companyDailyIncome = data.profile.income.daily;
+					console.log(`company name is ${companyName}`); 
+						if (!companyName) {
+							message.reply(`Company ID ${ID} could not be found.`);
+							return;
+						}
+					message.reply(`Company ID ${ID} is [${companyTag}] ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income.`);
+					console.log(`replied with [${companyTag}] ${companyName}, which is ${companyOld} days old, has ${companyEmployees} employees, and has ${companyDailyIncome} daily income. type = company)`); 
+				} 
+				wrapperWhatisCompany();	
 			}
 		}
 	}
