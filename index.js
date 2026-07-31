@@ -1,25 +1,6 @@
 const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
 require('dotenv').config();
 
-/*
-async function UserBasic() {
-	const rawResponseUserBasic = await fetch('https://api.torn.com/v2/user/basic', {
-		method: "GET",
-		headers: {
-			"cache-control": "no-store, no-cache, must-revalidate, max-age=0",
-			"content-type": "applications/json",
-			"Authorization": `ApiKey ${process.env.TORN_API}`
-		}
-	});
-
-	const UserBasicJson = await rawResponseUserBasic.json;
-
-	const playerTag = `${UserBasicJson.user.name} [${UserBasicJson.profile.id}]`;
-};
-*/
-
-// ignore this line 
-
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
@@ -27,6 +8,31 @@ const client = new Client({
 		GatewayIntentBits.MessageContent
 	]
 });
+
+let alertChannel;
+
+let hospitalAlertEnabled = false;
+let travelAlertEnabled = false;
+let drugAlertEnabled = false;
+let boosterAlertEnabled = false;
+let medAlertEnabled = false;
+
+let hospitalAlertInterval = null;
+let travelAlertInterval = null;
+let drugAlertInterval = null;
+let boosterAlertInterval = null;
+let medAlertInterval = null;
+
+var savedStatusHospital = "";
+var savedStatusTravel = "";
+var savedStatusDrug = "";
+var savedStatusBooster = "";
+var savedStatusMed = "";
+
+let playerTag = "";
+
+let discordID = "";
+
 
 
 client.once(Events.ClientReady, (readyClient) => {
@@ -51,6 +57,14 @@ const logMessageEvent = (message, detail, level = 'log') => {
 };
 
 const formatUserTag = (name, id) => `${name || 'Unknown'} [${id || 'Unknown'}]`;
+
+// Builds a fixed-size bar string. Always caps at `size` iterations,
+// so a bad/zero `max` value from the API can never cause an infinite loop.
+const buildBar = (current, max, emoji, size = 10) => {
+	if (!Number.isFinite(max) || max <= 0) return "";
+	const ratio = Math.min(1, Math.max(0, current / max));
+	return emoji.repeat(Math.round(ratio * size));
+};
 
 const safeReply = async (message, payload) => {
 	try {
@@ -131,7 +145,7 @@ client.on(Events.MessageCreate, async (message) => {
 				return;
 			}
 
-			const playerTag = formatUserTag(data.profile.name, data.profile.id);
+			playerTag = formatUserTag(data.profile.name, data.profile.id);
 			const embed = new EmbedBuilder()
 				.setColor(0x5865f2)
 				.setTitle('Bot Information')
@@ -215,7 +229,9 @@ client.on(Events.MessageCreate, async (message) => {
 					{ name: '!log [number]', value: 'Shows the latest log entries from Torn City.', inline: false },
 					{ name: '!whatis [type] [id]', value: 'Looks up Torn items, factions, companies, properties, merits, honors, stocks, players, or forum threads.', inline: false },
 					{ name: '!help', value: 'Shows this help message.', inline: false },
-					{ name: '!bars', value: 'Shows your current bar values. Such as energy, nerve, happiness, and life.', inline: false }
+					{ name: '!bars', value: 'Shows your current bar values. Such as energy, nerve, happiness, and life.', inline: false },
+					{ name: '!set', value: 'Sets the current channel as the destination for alert messages.', inline: false },
+					{ name: '!alert [type] [interval(optional)]', value: 'Toggles an alert on/off. Types: hospital, travel, drug, booster, med. Interval is in seconds (default 30).', inline: false }
 				);
 			await safeReply(message, { embeds: [embed] });
 			logMessageEvent(message, '!help completed', 'log');
@@ -467,24 +483,284 @@ client.on(Events.MessageCreate, async (message) => {
 			var maxlife = data.bars.life.maximum;
 			var currentlife = data.bars.life.current;
 
-			var EnergyBuffer = "";
-			for (var i = 0; i <= currentenergy; i=i+(maxenergy/10)) {
-				EnergyBuffer = EnergyBuffer + "🟩";
-			}
-			var NerveBuffer = "";
-			for (var i = 0; i <= currentnerve; i=i+(maxnerve/10)) {
-				NerveBuffer = NerveBuffer + "🟥";
-			}
-			var HappinessBuffer = "";
-			for (var i = 0; i <= currenthappiness; i=i+(maxhappiness/10)) {
-				HappinessBuffer = HappinessBuffer + "🟨";
-			}
-			var LifeBuffer = "";
-			for (var i = 0; i <= currentlife; i=i+(maxlife/10)) {
-				LifeBuffer = LifeBuffer + "🟦";
-			}
-			var finalBuffer = `**Energy: ** ${EnergyBuffer} ${currentenergy} / ${maxenergy}\n**Nerve:    ** ${NerveBuffer} ${currentnerve} / ${maxnerve}\n**Happy:   ** ${HappinessBuffer} ${currenthappiness} / ${maxhappiness}\n**Life:           ** ${LifeBuffer} ${currentlife} / ${maxlife}`;
+			// Fixed-size bars — buildBar() always does at most 10 iterations,
+			// so a zero/weird `max` from the API can never hang the bot.
+			var EnergyBuffer = buildBar(currentenergy, maxenergy, "🟩");
+			var NerveBuffer = buildBar(currentnerve, maxnerve, "🟥");
+			var HappinessBuffer = buildBar(currenthappiness, maxhappiness, "🟨");
+			var LifeBuffer = buildBar(currentlife, maxlife, "🟦");
+
+			var finalBuffer = `**Energy: ** ${EnergyBuffer} ${currentenergy} / ${maxenergy}\n**Nerve:    ** ${NerveBuffer} ${currentnerve} / ${maxnerve}\n**Happy:   ** ${HappinessBuffer} ${currenthappiness} / ${maxhappiness}\n**Life:           ** ${LifeBuffer} ${currentlife} / ${maxlife}`;
 			await safeReply(message, finalBuffer);
+		}
+		if (message.content === "!set") {
+			alertChannel = message.channel;
+			await safeReply(message, 'Alert channel is successifuly set to #' + message.channel.name);
+		}
+		if (message.content.startsWith("!alert")) {
+			const { data: discordData, error: discordError } = await safeFetchJson(message, "https://api.torn.com/v2/user/discord");
+			if (discordError || !discordData?.discord?.user_id) {
+				await safeReply(message, "Unable to fetch your Discord ID right now.");
+				return;
+			}
+			discordID = discordData.discord.user_id;
+			if (!alertChannel) {
+				await safeReply(message, "No alert channel set. Go to the channel you'd like to set as one and run !set to set one.");
+				return;
+			}
+			const alertArguments = message.content.trim().split(/\s+/);
+			let alertType = alertArguments[1];
+			let alertCheckInterval = parseInt(alertArguments[2], 10);
+			if (!alertType) {
+				await safeReply(message, "Invalid alert syntax. Use: !alert <type> <interval(optional)>\naccepted types are hospital, travel, drug (drug cooldown expire), booster (booster cooldown expire), med (medical cooldown expire)");
+				return;
+			}
+			if (Number.isNaN(alertCheckInterval)) {
+				alertCheckInterval = 30;
+			}
+			if (alertType === "hospital") {
+				if (!hospitalAlertEnabled) {
+					// Fetch first — only mark the alert as enabled once we know setup actually succeeded.
+					const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/basic");
+					if (error || !data?.profile?.status) {
+						await safeReply(message, "Unable to fetch your hospital status right now.");
+						return;
+					}
+
+					hospitalAlertEnabled = true;
+					savedStatusHospital = data.profile.status;
+					logMessageEvent(message, '[alerts] enabling hospital alerts', 'log');
+					await safeReply(message, "Hospital alerts have been enabled.");
+
+					hospitalAlertInterval = setInterval(async () => {
+						if (!hospitalAlertEnabled) {
+							logMessageEvent(message, '[alerts] hospital interval skipped because alerts are disabled', 'log');
+							return;
+						}
+						logMessageEvent(message, `[alerts] hospital check tick | interval=${alertCheckInterval}s`, 'log');
+						const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/basic");
+						if (error || !data?.profile?.status) {
+							return;
+						}
+						if (savedStatusHospital.state !== data.profile.status.state && data.profile.status.state === "Hospital") {
+							logMessageEvent(message, `[alerts] hospital alert triggered | old=${JSON.stringify(savedStatusHospital)} new=${JSON.stringify(data.profile.status)}`, 'log');
+							var hospitalBuffer = `<@${discordID}>, You are ${data.profile.status.description}! ${data.profile.status.details}`;
+							const hospitalEmbed = new EmbedBuilder()
+								.setColor(0x8d2c2c)
+								.setTitle('Hospital Alert')
+								.setDescription(hospitalBuffer);
+							await alertChannel.send({ embeds: [hospitalEmbed] });
+							savedStatusHospital = data.profile.status;
+						} else if (savedStatusHospital.state !== data.profile.status.state && data.profile.status.state === "Okay") {
+							logMessageEvent(message, `[alerts] hospital release alert triggered | old=${JSON.stringify(savedStatusHospital)} new=${JSON.stringify(data.profile.status)}`, 'log');
+							savedStatusHospital = data.profile.status;
+							var okayBuffer = `You are now released from the hospital! <@${discordID}>`;
+							const okayEmbed = new EmbedBuilder()
+								.setColor(0x2c8d2c)
+								.setTitle('Hospital Alert')
+								.setDescription(okayBuffer);
+							await alertChannel.send({ embeds: [okayEmbed] });
+						} else {
+							logMessageEvent(message, `hospital status is not changed`);
+							savedStatusHospital = data.profile.status;
+						}
+					}, alertCheckInterval * 1000);
+				} else {
+					hospitalAlertEnabled = false;
+					logMessageEvent(message, '[alerts] disabling hospital alerts', 'log');
+					await safeReply(message, "Hospital alerts have been disabled.");
+					if (hospitalAlertInterval) {
+						clearInterval(hospitalAlertInterval);
+						hospitalAlertInterval = null;
+					}
+				} 
+			}
+			if (alertType === "travel") {
+				if (!travelAlertEnabled) {
+					// Fetch first — only mark the alert as enabled once we know setup actually succeeded.
+					const {data, error} = await safeFetchJson(message, "https://api.torn.com/v2/user/basic");
+					if (error || !data?.profile?.status) {
+						await safeReply(message, "Unable to fetch your travel status right now.");
+						return;
+					}
+
+					travelAlertEnabled = true;
+					savedStatusTravel = data.profile.status;
+					logMessageEvent(message, '[alerts] enabling travel alerts', 'log');
+					await safeReply(message, "Travel alerts have been enabled.");
+
+					travelAlertInterval = setInterval(async () => {
+						if (!travelAlertEnabled) {
+							logMessageEvent(message, '[alerts] travel interval skipped because alerts are disabled', 'log');
+							return;
+						}
+						logMessageEvent(message, `[alerts] travel check tick | interval=${alertCheckInterval}s`, 'log');
+						const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/basic");
+						if (error || !data?.profile?.status) {
+							return;
+						}
+						if (savedStatusTravel.state !== data.profile.status.state && data.profile.status.state === "Travel") {
+							// var travelBuffer = `<@${discordID}>, You are ${data.profile.status.description}! ${data.profile.status.details}`; // travel should not send a message
+							savedStatusTravel = data.profile.status;
+						} else if (savedStatusTravel.state !== data.profile.status.state && data.profile.status.state === "Okay") {
+							var landingBuffer = `You are now landing! <@${discordID}>`;
+							const landingEmbed = new EmbedBuilder()
+								.setColor(0x50b8c0)
+								.setTitle('Travel Landing Alert')
+								.setDescription(landingBuffer);
+							await alertChannel.send({ embeds: [landingEmbed] });
+							savedStatusTravel = data.profile.status;
+						} else {
+							logMessageEvent(message, `travel status is not changed`);
+							savedStatusTravel = data.profile.status;
+						}
+					}, alertCheckInterval * 1000);
+				} else {
+					travelAlertEnabled = false;
+					logMessageEvent(message, '[alerts] disabling travel alerts', 'log');
+					await safeReply(message, "Travel alerts have been disabled.");
+					if (travelAlertInterval) {
+						clearInterval(travelAlertInterval);
+						travelAlertInterval = null;
+					}
+					savedStatusTravel = "";
+				} 
+			}
+			if (alertType === "drug") {
+				if (!drugAlertEnabled) {
+					// Fetch first — only mark the alert as enabled once we know setup actually succeeded.
+					const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/cooldowns");
+					if (error || !data?.cooldowns?.drug) {
+						await safeReply(message, "Unable to fetch your drug cooldown right now.");
+						return;
+					}
+
+					drugAlertEnabled = true;
+					savedStatusDrug = parseInt(data.cooldowns.drug, 10);
+					logMessageEvent(message, '[alerts] enabling drug alerts', 'log');
+					await safeReply(message, "Drug alerts have been enabled.");
+
+					drugAlertInterval = setInterval(async () => {
+						if (!drugAlertEnabled) {
+							return;
+						}
+						const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/cooldowns");
+						if (error || !data?.cooldowns?.drug) {
+							return;
+						}
+						const currentDrugCooldown = parseInt(data.cooldowns.drug, 10);
+						if (savedStatusDrug > 0 && currentDrugCooldown <= 0) {
+							logMessageEvent(message, `[alerts] drug alert triggered | lastSeen=${savedStatusDrug} current=${currentDrugCooldown}`, 'log');
+							var drugBuffer = `<@${discordID}>, You are no longer under the influence of a drug!`;
+							const drugEmbed = new EmbedBuilder()
+								.setColor(0x8d2c2c)
+								.setTitle('Drug Alert')
+								.setDescription(drugBuffer);
+							await alertChannel.send({ embeds: [drugEmbed] });
+						}
+						savedStatusDrug = currentDrugCooldown;
+					}, alertCheckInterval * 1000);
+				} else {
+					drugAlertEnabled = false;
+					logMessageEvent(message, '[alerts] disabling drug alerts', 'log');
+					await safeReply(message, "Drug alerts have been disabled.");
+					if (drugAlertInterval) {
+						clearInterval(drugAlertInterval);
+						drugAlertInterval = null;
+					}
+					savedStatusDrug = 0;
+				} 
+			}
+			if (alertType === "booster") {
+				if (!boosterAlertEnabled) {
+					// Fetch first — only mark the alert as enabled once we know setup actually succeeded.
+					const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/cooldowns");
+					if (error || data?.cooldowns?.booster === undefined) {
+						await safeReply(message, "Unable to fetch your booster cooldown right now.");
+						return;
+					}
+
+					boosterAlertEnabled = true;
+					savedStatusBooster = parseInt(data.cooldowns.booster, 10);
+					logMessageEvent(message, '[alerts] enabling booster alerts', 'log');
+					await safeReply(message, "Booster alerts have been enabled.");
+
+					boosterAlertInterval = setInterval(async () => {
+						if (!boosterAlertEnabled) {
+							return;
+						}
+						const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/cooldowns");
+						if (error || data?.cooldowns?.booster === undefined) {
+							return;
+						}
+						const currentBoosterCooldown = parseInt(data.cooldowns.booster, 10);
+						if (savedStatusBooster > 0 && currentBoosterCooldown <= 0) {
+							logMessageEvent(message, `[alerts] booster alert triggered | lastSeen=${savedStatusBooster} current=${currentBoosterCooldown}`, 'log');
+							var boosterBuffer = `<@${discordID}>, Your booster cooldown has expired!`;
+							const boosterEmbed = new EmbedBuilder()
+								.setColor(0x8d2c2c)
+								.setTitle('Booster Alert')
+								.setDescription(boosterBuffer);
+							await alertChannel.send({ embeds: [boosterEmbed] });
+						}
+						savedStatusBooster = currentBoosterCooldown;
+					}, alertCheckInterval * 1000);
+				} else {
+					boosterAlertEnabled = false;
+					logMessageEvent(message, '[alerts] disabling booster alerts', 'log');
+					await safeReply(message, "Booster alerts have been disabled.");
+					if (boosterAlertInterval) {
+						clearInterval(boosterAlertInterval);
+						boosterAlertInterval = null;
+					}
+					savedStatusBooster = 0;
+				}
+			}
+			if (alertType === "med") {
+				if (!medAlertEnabled) {
+					// Fetch first — only mark the alert as enabled once we know setup actually succeeded.
+					const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/cooldowns");
+					if (error || data?.cooldowns?.medical === undefined) {
+						await safeReply(message, "Unable to fetch your medical cooldown right now.");
+						return;
+					}
+
+					medAlertEnabled = true;
+					savedStatusMed = parseInt(data.cooldowns.medical, 10);
+					logMessageEvent(message, '[alerts] enabling med alerts', 'log');
+					await safeReply(message, "Medical cooldown alerts have been enabled.");
+
+					medAlertInterval = setInterval(async () => {
+						if (!medAlertEnabled) {
+							return;
+						}
+						const { data, error } = await safeFetchJson(message, "https://api.torn.com/v2/user/cooldowns");
+						if (error || data?.cooldowns?.medical === undefined) {
+							return;
+						}
+						const currentMedCooldown = parseInt(data.cooldowns.medical, 10);
+						if (savedStatusMed > 0 && currentMedCooldown <= 0) {
+							logMessageEvent(message, `[alerts] med alert triggered | lastSeen=${savedStatusMed} current=${currentMedCooldown}`, 'log');
+							var medBuffer = `<@${discordID}>, Your medical cooldown has expired!`;
+							const medEmbed = new EmbedBuilder()
+								.setColor(0x8d2c2c)
+								.setTitle('Medical Alert')
+								.setDescription(medBuffer);
+							await alertChannel.send({ embeds: [medEmbed] });
+						}
+						savedStatusMed = currentMedCooldown;
+					}, alertCheckInterval * 1000);
+				} else {
+					medAlertEnabled = false;
+					logMessageEvent(message, '[alerts] disabling med alerts', 'log');
+					await safeReply(message, "Medical cooldown alerts have been disabled.");
+					if (medAlertInterval) {
+						clearInterval(medAlertInterval);
+						medAlertInterval = null;
+					}
+					savedStatusMed = 0;
+				}
+			}
 		}
 	} catch (error) {
 		await handleCommandError(message, 'Message handler', error);
