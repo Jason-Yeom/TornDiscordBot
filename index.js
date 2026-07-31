@@ -446,6 +446,45 @@ client.on(Events.MessageCreate, async (message) => {
 			logMessageEvent(message, `Unsupported !whatis type: ${type}`, 'warn');
 			await safeReply(message, 'Unsupported type. Supported types are: item, faction, company, property, merit, honor, stock, player, and thread.');
 		}
+		if (message.content === '!bars') {
+			const { data, error } = await safeFetchJson(message, `https://api.torn.com/v2/user/bars`);
+			if (error || !data?.bars) {
+				logMessageEvent(message, `!bars failed: ${error?.message || 'missing bar data'}`, 'warn');
+				await safeReply(message, 'Could not fetch bar information right now.');
+				return;
+			}
+
+			var maxenergy = data.bars.energy.maximum;
+			var currentenergy = data.bars.energy.current;
+
+			var maxnerve = data.bars.nerve.maximum;
+			var currentnerve = data.bars.nerve.current;
+
+			var maxhappiness = data.bars.happy.maximum;
+			var currenthappiness = data.bars.happy.current;
+
+			var maxlife = data.bars.life.maximum;
+			var currentlife = data.bars.life.current;
+
+			var EnergyBuffer = "";
+			for (var i = 0; i <= currentenergy; i=i+(maxenergy/10)) {
+				EnergyBuffer = EnergyBuffer + "🟩";
+			}
+			var NerveBuffer = "";
+			for (var i = 0; i <= currentnerve; i=i+(maxnerve/10)) {
+				NerveBuffer = NerveBuffer + "🟥";
+			}
+			var HappinessBuffer = "";
+			for (var i = 0; i <= currenthappiness; i=i+(maxhappiness/10)) {
+				HappinessBuffer = HappinessBuffer + "🟨";
+			}
+			var LifeBuffer = "";
+			for (var i = 0; i <= currentlife; i=i+(maxlife/10)) {
+				LifeBuffer = LifeBuffer + "🟦";
+			}
+			var finalBuffer = `**Energy: ** ${EnergyBuffer} ${currentenergy} / ${maxenergy}\n**Nerve:    ** ${NerveBuffer} ${currentnerve} / ${maxnerve}\n**Happy:   ** ${HappinessBuffer} ${currenthappiness} / ${maxhappiness}\n**Life:           ** ${LifeBuffer} ${currentlife} / ${maxlife}`;
+			await safeReply(message, finalBuffer);
+		}
 	} catch (error) {
 		await handleCommandError(message, 'Message handler', error);
 	}
