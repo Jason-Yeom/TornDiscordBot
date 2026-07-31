@@ -69,6 +69,7 @@ Used to call to torn api from discord, for monitoring but idk, universal usage
       - `!whatis stock 1`
       - `!whatis thread 16562001`
       - `!whatis player 4045988`
+- `!bars` gets the users bars. energy, nerve, life, happiness bars.
 
 <sub>whats torn city? A long term text based MMORPG game! [https://torn.com/](https://torn.com/4045988)</sub>
 <sub>JasonYeom [4045988]</sub>

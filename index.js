@@ -214,7 +214,8 @@ client.on(Events.MessageCreate, async (message) => {
 					{ name: '!info', value: 'Shows bot information using your Torn API profile.', inline: false },
 					{ name: '!log [number]', value: 'Shows the latest log entries from Torn City.', inline: false },
 					{ name: '!whatis [type] [id]', value: 'Looks up Torn items, factions, companies, properties, merits, honors, stocks, players, or forum threads.', inline: false },
-					{ name: '!help', value: 'Shows this help message.', inline: false }
+					{ name: '!help', value: 'Shows this help message.', inline: false },
+					{ name: '!bars', value: 'Shows your current bar values. Such as energy, nerve, happiness, and life.', inline: false }
 				);
 			await safeReply(message, { embeds: [embed] });
 			logMessageEvent(message, '!help completed', 'log');
